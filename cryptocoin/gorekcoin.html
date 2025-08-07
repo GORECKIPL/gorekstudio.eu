@@ -1,0 +1,119 @@
+<div id="gorekcoin-about" style="max-width: 100%; margin: 0 auto; padding: 2rem; background-color: #0d0d0d; color: #eee; font-family: 'Inter', sans-serif; border-radius: 12px; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
+    <h1 style="font-size: 2.5rem; margin-bottom: 1rem; color: #ffd700;">🌐 GOREKCOIN – Moneta Kanału GorekPL</h1>
+
+    <p style="font-size: 1.2rem; line-height: 1.6;">
+        GOREKCOIN ($GOREK) to nasza waluta testowo-eksperymentalna oparta na Binance Smart Chain (BSC),
+        zbudowana przez pasjonatów technologii i automatyzacji. Szczególnie do celów nagradzania widzów za generowanie zysków na kanale :D
+    </p>
+
+    <h2 style="margin-top: 2rem; color: #00ffaa;">🧠 Jak działa?</h2>
+    <ul style="font-size: 1.1rem; line-height: 1.6; padding-left: 1.5rem;">
+        <li>➡️ 100% transparentny smart kontrakt – bez mintowania. (Dodruku pieniędzy jak NBP)</li>
+        <li>➡️ Ma własną parę z BNB – można realnie handlować. (ciężko było ale jest!) </li>
+        <li>➡️ Brak centralnego zarządzania – decentralizacja i testy rynkowe. (5$ za Górka!) </li>
+        <li>➡️ Zasilany z zysków z projektów takich jak <a href="https://r.honeygain.me/GOREC48220" target="_blank" rel="noopener noreferrer">Honeygain</a> i kampanie partnerskie.</li>
+    </ul>
+
+    <h2 style="margin-top: 2rem; color: #00ffaa;">💧 Jak upłynniać?</h2>
+    <ol style="font-size: 1.1rem; line-height: 1.6; padding-left: 1.5rem;">
+        <li>1. Wejdź na <a href="https://www.dextools.io/app/en/bnb/pair-explorer/0x07997d4bc0fbb6958b57a9fcc550c247e684645c23d2b051e8cd1bd6638b4904" target="_blank" style="color: #00ccff;">DEXTools</a>.</li>
+        <li>2. Wymień $GOREK na BNB lub odwrotnie (jeśli jest wystarczająca płynność).</li>
+        <li>3. Możesz też zasilić liquidity pool i zarabiać na fee (jeśli jesteś OG inwestorem).</li>
+    </ol>
+
+    <h2 style="margin-top: 2rem; color: #ffd700;">📊 Statystyki tokena</h2>
+    <p style="font-size: 1.1rem;">
+        <i style="color: #ccc; font-style: normal;">Kurs $GOREK ustalono na stałym poziomie 5.00$ w ramach projektu. Poniższe dane są dynamicznie aktualizowane.</i><br>
+        <strong>Płynność (LQ):</strong> <span id="liq">$...</span><br>
+        <strong>Cena 1 GOREK:</strong> <span id="gorekPrice">$5.00 / ... PLN</span><br>
+        <strong>Kurs GOREK/BNB:</strong> <span id="bnbprice">...</span><br>
+        <strong>Całościowa wartość:</strong> <span id="estimated">$...</span><br>
+        <strong>Całkowita podaż:</strong> <span id="totalSupply">...</span><br>
+        <strong>Podaż w obiegu:</strong> <span id="circulatingSupply">...</span>
+    </p>
+
+    <h2 style="margin-top: 2rem; color: #ffd700;">🤝 Wsparcie i Premium</h2>
+    <p style="font-size: 1.1rem;">
+        Jeśli chcesz wspomóc rozwój projektu lub po prostu lubisz memowe, ale uczciwe inicjatywy – zostaw wsparcie:
+        <a href="https://gorekstudio.eu/premium" target="_blank" style="color: #00ccff;">gorekstudio.eu/premium</a>
+    </p>
+
+    <div style="margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+        <a href="https://t.me/gorekcoinpl" target="_blank" style="background: #229ED9; padding: 0.8rem 1.5rem; border-radius: 8px; color: #fff; text-decoration: none;">📢 Telegram</a>
+        <a href="https://bscscan.com/token/0xF44c730c5C0Fa167Ae42C1a0106557d226d35986" target="_blank" style="background: #f3ba2f; padding: 0.8rem 1.5rem; border-radius: 8px; color: #000; text-decoration: none;">📄 BscScan</a>
+        <a href="https://www.dextools.io/app/en/bnb/pair-explorer/0x07997d4bc0fbb6958b57a9fcc550c247e684645c23d2b051e8cd1bd6638b4904" target="_blank" style="background: #5865f2; padding: 0.8rem 1.5rem; border-radius: 8px; color: #fff; text-decoration: none;">📊 DEXTools</a>
+    </div>
+</div>
+
+<script>
+    const GOREK_PRICE_USD = 5.00;
+    const LIQUIDITY_USD = 11.05;
+    const contractAddress = '0xF44c730c5C0Fa167Ae42C1a0106557d226d35986';
+    const apiKey = 'Y7VJIFVFM749BI2BJZJAG2DAXEWFUX7EYD';
+    const chainId = 56;
+
+    const teamAddresses = [
+        '0x58D6B8DE86F2AcD9c82f874e549A60861E58be6A',
+        '0xAf70d63Eb6AC7358474eE46cD27291DA1F396c7f'
+    ];
+
+    // Funkcja do dodawania opóźnienia
+    const delay = ms => new Promise(res => setTimeout(res, ms));
+
+    async function updateGorekStats() {
+        try {
+            // Pobieramy dane z CoinGecko
+            const cgRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=binancecoin,tether&vs_currencies=usd,pln');
+            const cgData = await cgRes.json();
+            
+            const bnbPriceUSD = cgData.binancecoin.usd;
+            const usdtPricePLN = cgData.tether.pln;
+
+            // Pobieramy całkowitą podaż z BscScan V2
+            const supplyURL = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=stats&action=tokensupply&contractaddress=${contractAddress}&apikey=${apiKey}`;
+            const supplyRes = await fetch(supplyURL);
+            const supplyData = await supplyRes.json();
+            const totalSupplyRaw = parseFloat(supplyData.result) / 1e18;
+            await delay(300); // Opóźnienie 300ms, aby uniknąć limitu API
+
+            let teamHoldings = 0;
+            for (const address of teamAddresses) {
+                const balanceURL = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=tokenbalance&contractaddress=${contractAddress}&address=${address}&tag=latest&apikey=${apiKey}`;
+                const balanceRes = await fetch(balanceURL);
+                const balanceData = await balanceRes.json();
+                teamHoldings += parseFloat(balanceData.result) / 1e18;
+                await delay(300); // Opóźnienie 300ms, aby uniknąć limitu API
+            }
+
+            const circulatingSupply = totalSupplyRaw - teamHoldings;
+            const marketCapUSD = circulatingSupply * GOREK_PRICE_USD;
+            const gorekPricePLN = GOREK_PRICE_USD * usdtPricePLN;
+            const gorekPriceBNB = GOREK_PRICE_USD / bnbPriceUSD;
+
+            document.getElementById("liq").innerText = `$${LIQUIDITY_USD.toFixed(2)}`;
+            document.getElementById("gorekPrice").innerText = `$${GOREK_PRICE_USD.toFixed(2)} / ${gorekPricePLN.toFixed(2)} PLN`;
+            document.getElementById("bnbprice").innerText = `${gorekPriceBNB.toFixed(10)} BNB`;
+            document.getElementById("estimated").innerText = `$${marketCapUSD.toFixed(2)} USD`;
+            document.getElementById("totalSupply").innerText = `${totalSupplyRaw.toFixed(2)} GOREK`;
+            document.getElementById("circulatingSupply").innerText = `${circulatingSupply.toFixed(2)} GOREK`;
+
+        } catch (error) {
+            console.error('Błąd podczas pobierania danych:', error);
+            
+            document.getElementById("liq").innerText = `Błąd API`;
+            document.getElementById("gorekPrice").innerText = `$5.00 / Błąd API`;
+            document.getElementById("bnbprice").innerText = `Błąd API`;
+            document.getElementById("estimated").innerText = `Błąd API`;
+            document.getElementById("totalSupply").innerText = `Błąd API`;
+            document.getElementById("circulatingSupply").innerText = `Błąd API`;
+        }
+    }
+    updateGorekStats();
+	// === security.js === 🛡️ Anti-F12 & right-click
+	window.addEventListener('contextmenu', e => e.preventDefault());
+	window.addEventListener('keydown', e => {
+    if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) {
+        e.preventDefault();
+    }
+	});
+</script>

@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Europejska Ruletka v7.0</title>
+    <!-- Ładowanie bibliotek -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Styl CSS */
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow: hidden;
+            background-color: #0d1117;
+            color: #e6edf3;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 800px;
+            height: 60vh;
+            border-radius: 1rem;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            margin-bottom: 2rem;
+        }
+
+        #roulette-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #ui-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 1rem;
+            background-color: #161b22;
+            border-radius: 1rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-family: 'Inter', sans-serif;
+            text-align: center;
+            color: #f1c40f;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        #balance-display, #result-display {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #e6edf3;
+            margin-bottom: 1rem;
+            text-align: center;
+            background-color: #23282f;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+        }
+
+        #result-display {
+            color: #f1c40f;
+            min-height: 2rem;
+            line-height: 2rem;
+        }
+
+        #bet-area {
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .bet-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .bet-button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            color: #e6edf3;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            background-color: #34495e;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .bet-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .bet-button.selected {
+            border: 2px solid #f1c40f;
+            background-color: #2c3e50;
+            transform: scale(1.05);
+        }
+        
+        .bet-button.selected.click-feedback {
+            animation: click-anim 0.2s;
+        }
+
+        @keyframes click-anim {
+            0% { transform: scale(1.05); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1.05); }
+        }
+
+        .bet-button.red-bet { background-color: #e74c3c; }
+        .bet-button.black-bet { background-color: #2c3e50; }
+
+        .bet-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #spin-button {
+            background-color: #1abc9c;
+            color: #fff;
+            padding: 1rem 2rem;
+            border-radius: 9999px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        #spin-button:hover:not(:disabled) {
+            background-color: #16a085;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(0, 0, 0, 0.4);
+        }
+        
+        #spin-button:disabled {
+            background-color: #7f8c8d;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        #bet-amount-slider-container {
+            width: 100%;
+            max-width: 400px;
+            margin-top: 1rem;
+        }
+        
+        #bet-amount-slider {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 8px;
+            border-radius: 4px;
+            background: #2c3e50;
+            outline: none;
+        }
+
+        #bet-amount-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #f1c40f;
+            cursor: pointer;
+            border: 2px solid #fff;
+            transition: background 0.15s ease-in-out;
+        }
+
+        #bet-amount-slider::-webkit-slider-thumb:hover {
+            background: #f39c12;
+        }
+
+        #message-box {
+            position: fixed;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+            z-index: 1000;
+        }
+
+        #message-box.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #mute-button, #camera-toggle {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background-color: #2c3e50;
+            color: #fff;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.2s;
+            z-index: 100;
+        }
+
+        #camera-toggle {
+            right: 5rem;
+        }
+
+        #mute-button:hover, #camera-toggle:hover {
+            background-color: #34495e;
+        }
+        
+        #debug-info {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+            z-index: 99;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+
+    <div id="message-box" class="fixed"></div>
+    <button id="mute-button" title="Wycisz/Włącz dźwięk">
+        <i class="fas fa-volume-up"></i>
+    </button>
+    <button id="camera-toggle" title="Przełącz kontrolę kamery">
+        <i class="fas fa-camera"></i>
+    </button>
+    <div id="debug-info"></div>
+
+    <h1 class="text-3xl font-bold my-8">Europejska Ruletka v7.0</h1>
+    
+    <div id="game-container" class="relative">
+        <canvas id="roulette-canvas"></canvas>
+    </div>
+
+    <div id="ui-container">
+        <div id="balance-display" class="font-bold">Saldo: 1000</div>
+        
+        <div id="bet-area">
+            <h2 class="text-xl font-bold mb-2">Postaw zakład:</h2>
+            <div class="bet-buttons">
+                <button class="bet-button red-bet" data-bet-type="color" data-bet-value="red">Czerwone</button>
+                <button class="bet-button black-bet" data-bet-type="color" data-bet-value="black">Czarne</button>
+                <button class="bet-button other-bet" data-bet-type="range" data-bet-value="1-18">1-18</button>
+                <button class="bet-button other-bet" data-bet-type="range" data-bet-value="19-36">19-36</button>
+                <button class="bet-button other-bet" data-bet-type="parity" data-bet-value="even">Parzyste</button>
+                <button class="bet-button other-bet" data-bet-type="parity" data-bet-value="odd">Nieparzyste</button>
+                <button class="bet-button dozen-bet" data-bet-type="dozen" data-bet-value="1-12">1. Tuzin</button>
+                <button class="bet-button dozen-bet" data-bet-type="dozen" data-bet-value="13-24">2. Tuzin</button>
+                <button class="bet-button dozen-bet" data-bet-type="dozen" data-bet-value="25-36">3. Tuzin</button>
+            </div>
+        </div>
+
+        <div id="bet-amount-slider-container" class="my-4">
+            <label for="bet-amount-slider" class="text-lg font-bold">Kwota zakładu: <span id="bet-amount-value">10</span></label>
+            <input type="range" id="bet-amount-slider" min="10" max="500" value="10" step="10">
+        </div>
+
+        <div id="result-display" class="my-4 text-yellow-500">Zaczynamy!</div>
+
+        <button id="spin-button" class="mt-4">Zakręć</button>
+    </div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+  import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "TU_WKLEJ_DOKŁADNIE_API_KEY_BEZ_SPACJI",
+    authDomain: "ruletka-gorek.firebaseapp.com",
+    projectId: "ruletka-gorek",
+    storageBucket: "ruletka-gorek.appspot.com",
+    messagingSenderId: "274062333837",
+    appId: "1:274062333837:web:8047bc91d9efd2b5e68fc4",
+    measurementId: "G-QD82VQZTWX"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const resultsRef = collection(db, `/artifacts/${appId}/users/${userId}/roulette_results`);
+
+
+
+
+        // Definiowanie stałych i zmiennych globalnych
+        const ROULETTE_NUMBERS = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+        const ROULETTE_COLORS = {
+            0: 0x008000, // Zielony
+            1: 0xff0000, 2: 0x000000, 3: 0xff0000, 4: 0x000000, 5: 0xff0000, 6: 0x000000, 7: 0xff0000, 8: 0x000000, 9: 0xff0000, 10: 0x000000, 11: 0x000000, 12: 0xff0000, 13: 0x000000, 14: 0xff0000, 15: 0x000000, 16: 0xff0000, 17: 0x000000, 18: 0xff0000, 19: 0xff0000, 20: 0x000000, 21: 0xff0000, 22: 0x000000, 23: 0xff0000, 24: 0x000000, 25: 0xff0000, 26: 0x000000, 27: 0xff0000, 28: 0x000000, 29: 0x000000, 30: 0xff0000, 31: 0x000000, 32: 0xff0000, 33: 0x000000, 34: 0xff0000, 35: 0x000000, 36: 0xff0000
+        };
+        const ROULETTE_COLOR_NAMES = {
+            0: 'green', 1: 'red', 2: 'black', 3: 'red', 4: 'black', 5: 'red', 6: 'black', 7: 'red', 8: 'black', 9: 'red', 10: 'black', 11: 'black', 12: 'red', 13: 'black', 14: 'red', 15: 'black', 16: 'red', 17: 'black', 18: 'red', 19: 'red', 20: 'black', 21: 'red', 22: 'black', 23: 'red', 24: 'black', 25: 'red', 26: 'black', 27: 'red', 28: 'black', 29: 'black', 30: 'red', 31: 'black', 32: 'red', 33: 'black', 34: 'red', 35: 'black', 36: 'red'
+        };
+
+        const NUM_POCKETS = 37;
+        const POCKET_ANGLE = (2 * Math.PI) / NUM_POCKETS;
+        const WHEEL_RADIUS = 5;
+        const BALL_RADIUS = 0.2;
+        const DEBUG_INTERVAL_MS = 100;
+        const TEXT_COLOR = 0xffffff;
+
+        let scene, camera, renderer;
+        let world;
+        let wheelMesh, ballMesh;
+        let wheelBody, ballBody, groundBody, outerWallBody;
+        let bet = null;
+        let balance = 1000;
+        let betAmount = 10;
+        let spinning = false;
+        let isMuted = false;
+        const ttsCache = {};
+        let cameraControlsEnabled = false;
+
+        // Zmienne do kontroli kamery
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let cameraAngle = { horizontal: 0, vertical: Math.PI / 4 };
+
+        // Elementy DOM
+        const canvas = document.getElementById('roulette-canvas');
+        const spinButton = document.getElementById('spin-button');
+        const betButtons = document.querySelectorAll('.bet-button');
+        const resultDisplay = document.getElementById('result-display');
+        const balanceDisplay = document.getElementById('balance-display');
+        const messageBox = document.getElementById('message-box');
+        const muteButton = document.getElementById('mute-button');
+        const betAmountSlider = document.getElementById('bet-amount-slider');
+        const betAmountValueSpan = document.getElementById('bet-amount-value');
+        const debugInfo = document.getElementById('debug-info');
+        const cameraToggle = document.getElementById('camera-toggle');
+        
+        let db;
+        let auth;
+        let userId;
+        let lastSpeakTime = 0;
+
+        // Materiały do fizyki
+        const wheelMaterial = new CANNON.Material('wheelMaterial');
+        const ballMaterial = new CANNON.Material('ballMaterial');
+        const groundMaterial = new CANNON.Material('groundMaterial');
+        const rampMaterial = new CANNON.Material('rampMaterial');
+
+        // Ustawienie tarcia i sprężystości
+        const wheelBallContact = new CANNON.ContactMaterial(wheelMaterial, ballMaterial, {
+            friction: 0.0,
+            restitution: 0.9
+        });
+        const groundBallContact = new CANNON.ContactMaterial(groundMaterial, ballMaterial, {
+            friction: 0.5,
+            restitution: 0.2
+        });
+        const rampBallContact = new CANNON.ContactMaterial(rampMaterial, ballMaterial, {
+            friction: 0.1,
+            restitution: 0.9
+        });
+
+        // Funkcje pomocnicze audio
+        async function speak(text) {
+            if (isMuted) return;
+            const now = Date.now();
+            if (now - lastSpeakTime < 2000) return; // Ograniczanie spamu mową
+            lastSpeakTime = now;
+
+            if (ttsCache[text]) {
+                playAudio(ttsCache[text]);
+                return;
+            }
+            
+            const payload = {
+                contents: [{
+                    parts: [{ text: text }]
+                }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: "Kore" }
+                        }
+                    }
+                },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+
+            const apiKey = "AIzaSyDtZAhTT8lkTPSobxrXZ__k98aVl8LZ06U";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const part = result?.candidates?.[0]?.content?.parts?.[0];
+                const audioData = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType;
+
+                if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                    const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)[1], 10);
+                    const pcmData = base64ToArrayBuffer(audioData);
+                    const pcm16 = new Int16Array(pcmData);
+                    const wavBlob = pcmToWav(pcm16, sampleRate);
+                    ttsCache[text] = URL.createObjectURL(wavBlob);
+                    playAudio(ttsCache[text]);
+                } else {
+                    console.error('Błąd: Nieoczekiwana struktura odpowiedzi TTS.');
+                }
+            } catch (error) {
+                console.error('Błąd podczas generowania mowy:', error);
+            }
+        }
+
+        function playAudio(url) {
+            const audio = new Audio(url);
+            audio.play().catch(e => console.error('Błąd odtwarzania audio:', e));
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function pcmToWav(pcm16, sampleRate) {
+            const buffer = new ArrayBuffer(44 + pcm16.byteLength);
+            const view = new DataView(buffer);
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + pcm16.byteLength, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true); // format code
+            view.setUint16(22, 1, true); // num channels
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, pcm16.byteLength, true);
+            for (let i = 0; i < pcm16.length; i++) {
+                view.setInt16(44 + i * 2, pcm16[i], true);
+            }
+            return new Blob([view], { type: 'audio/wav' });
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        // ---- FUNKCJE UI ----
+        function showMessage(text) {
+            messageBox.textContent = text;
+            messageBox.classList.add('visible');
+            setTimeout(() => {
+                messageBox.classList.remove('visible');
+            }, 3000);
+        }
+
+        function updateUI() {
+            balanceDisplay.textContent = `Saldo: ${balance.toFixed(2)}`;
+            betAmountValueSpan.textContent = betAmount;
+        }
+
+        function resetBetButtons() {
+            betButtons.forEach(button => {
+                button.disabled = false;
+                button.classList.remove('selected');
+            });
+            spinButton.disabled = false;
+            bet = null;
+        }
+        
+        // Zapisywanie wyniku w Firestore
+        async function saveResult(winningNumber) {
+            try {
+                const resultsRef = collection(db, `/artifacts/${appId}/users/${userId}/roulette_results`);
+                await addDoc(resultsRef, {
+                    result: winningNumber,
+                    bet: bet,
+                    betAmount: betAmount,
+                    timestamp: new Date().toISOString()
+                });
+                console.log("Wynik zapisany w Firestore.");
+            } catch (e) {
+                console.error("Błąd podczas zapisywania wyniku w Firestore:", e);
+                showMessage("Błąd", "Nie udało się zapisać wyniku w bazie danych.");
+            }
+        }
+
+        // Sprawdzenie wygranej
+        function checkWin(winningNumber) {
+            let win = false;
+            let multiplier = 0;
+
+            if (!bet) return { win: false, multiplier: 0 };
+
+            const betValue = bet.value;
+            const betType = bet.type;
+            const winningNumberColor = ROULETTE_COLOR_NAMES[winningNumber];
+            const isEven = winningNumber !== 0 && winningNumber % 2 === 0;
+
+            switch (betType) {
+                case 'color':
+                    if (betValue === winningNumberColor) {
+                        win = true;
+                        multiplier = 2;
+                    }
+                    break;
+                case 'range':
+                    const [min, max] = betValue.split('-').map(Number);
+                    if (winningNumber >= min && winningNumber <= max) {
+                        win = true;
+                        multiplier = 2;
+                    }
+                    break;
+                case 'parity':
+                    if (betValue === 'even' && isEven) {
+                        win = true;
+                        multiplier = 2;
+                    } else if (betValue === 'odd' && !isEven && winningNumber !== 0) {
+                        win = true;
+                        multiplier = 2;
+                    }
+                    break;
+                case 'dozen':
+                    if (betValue === '1-12' && winningNumber >= 1 && winningNumber <= 12) {
+                        win = true;
+                        multiplier = 3;
+                    } else if (betValue === '13-24' && winningNumber >= 13 && winningNumber <= 24) {
+                        win = true;
+                        multiplier = 3;
+                    } else if (betValue === '25-36' && winningNumber >= 25 && winningNumber <= 36) {
+                        win = true;
+                        multiplier = 3;
+                    }
+                    break;
+            }
+
+            return { win, multiplier };
+        }
+
+        // Obsługa kliknięcia przycisku "Zakręć"
+        async function handleSpin() {
+            if (spinning || !bet || balance < betAmount) {
+                if (!bet) {
+                    showMessage("Proszę wybrać zakład.");
+                } else if (balance < betAmount) {
+                    showMessage("Za mało środków na koncie.");
+                }
+                return;
+            }
+
+            spinning = true;
+            spinButton.disabled = true;
+            betButtons.forEach(button => button.disabled = true);
+            balance -= betAmount;
+            updateUI();
+            resultDisplay.textContent = "Kręcimy...";
+            speak("Zakręć!");
+
+            // Resetowanie pozycji kulki i koła
+            ballBody.position.set(WHEEL_RADIUS * 0.9, 0.8, 0);
+            ballBody.velocity.set(0, 0, 0);
+            ballBody.angularVelocity.set(0, 0, 0);
+            wheelBody.angularVelocity.set(0, -5, 0); // Nadanie prędkości kołu
+
+            // Nadanie kulce losowej siły
+            const impulseStrength = 5;
+            const impulseDirection = new CANNON.Vec3(0, 0, -1).unit();
+            ballBody.applyImpulse(impulseDirection.scale(impulseStrength), ballBody.position);
+        }
+
+        // ---- INICJALIZACJA GRY ----
+        async function init() {
+            // Firebase setup
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                userId = auth.currentUser.uid;
+                console.log("Authenticated as user:", userId);
+                showMessage("Witaj! Jesteś zalogowany jako: " + userId);
+
+                // Initialize the game
+                setupScene();
+                createRouletteWheel();
+                createRouletteBall();
+                createOuterWall();
+                createPocketsAndText();
+                updateUI();
+                
+                // Event listeners
+                window.addEventListener('resize', onWindowResize, false);
+                spinButton.addEventListener('click', handleSpin);
+                betButtons.forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        betButtons.forEach(btn => btn.classList.remove('selected'));
+                        bet = {
+                            type: event.target.dataset.betType,
+                            value: event.target.dataset.betValue
+                        };
+                        event.target.classList.add('selected');
+                        event.target.classList.add('click-feedback');
+                        setTimeout(() => event.target.classList.remove('click-feedback'), 200);
+                        showMessage(`Postawiono ${betAmount} na ${event.target.textContent}.`);
+                    });
+                });
+                betAmountSlider.addEventListener('input', (event) => {
+                    betAmount = parseInt(event.target.value);
+                    betAmountValueSpan.textContent = betAmount;
+                });
+                muteButton.addEventListener('click', () => {
+                    isMuted = !isMuted;
+                    const icon = muteButton.querySelector('i');
+                    if (isMuted) {
+                        icon.classList.remove('fa-volume-up');
+                        icon.classList.add('fa-volume-mute');
+                        showMessage("Dźwięk wyłączony");
+                    } else {
+                        icon.classList.remove('fa-volume-mute');
+                        icon.classList.add('fa-volume-up');
+                        showMessage("Dźwięk włączony");
+                    }
+                });
+                cameraToggle.addEventListener('click', () => {
+                    cameraControlsEnabled = !cameraControlsEnabled;
+                    cameraToggle.style.backgroundColor = cameraControlsEnabled ? '#1abc9c' : '#2c3e50';
+                    showMessage(cameraControlsEnabled ? "Kontrola kamery włączona" : "Kontrola kamery wyłączona");
+                });
+
+                canvas.addEventListener('mousedown', onMouseDown);
+                canvas.addEventListener('mouseup', onMouseUp);
+                canvas.addEventListener('mousemove', onMouseMove);
+                canvas.addEventListener('touchstart', onTouchStart, false);
+                canvas.addEventListener('touchend', onTouchEnd, false);
+                canvas.addEventListener('touchmove', onTouchMove, false);
+
+                animate();
+            } catch (error) {
+                console.error("Firebase Auth error:", error);
+                showMessage("Błąd uwierzytelniania: " + error.message);
+            }
+        }
+        
+        function setupScene() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a1a);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+            camera.position.set(0, 7, 7);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5).normalize();
+            scene.add(directionalLight);
+
+            // Physics World
+            world = new CANNON.World();
+            world.gravity.set(0, -9.82, 0);
+            world.broadphase = new CANNON.NaiveBroadphase();
+            world.solver.iterations = 10;
+            
+            // Add contact materials to the world
+            world.addContactMaterial(wheelBallContact);
+            world.addContactMaterial(groundBallContact);
+            world.addContactMaterial(rampBallContact);
+            
+            // ground
+            const groundShape = new CANNON.Plane();
+            groundBody = new CANNON.Body({ mass: 0, material: groundMaterial });
+            groundBody.addShape(groundShape);
+            groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+            world.addBody(groundBody);
+        }
+
+        function createRouletteWheel() {
+            // Tworzenie wizualnego koła
+            const wheelGeometry = new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, 0.5, NUM_POCKETS * 2);
+            const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x2c3e50 });
+            wheelMesh = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            wheelMesh.rotation.x = Math.PI / 2;
+            wheelMesh.position.set(0, 0.5, 0);
+            scene.add(wheelMesh);
+            
+            // Tworzenie ciała fizycznego koła
+            wheelBody = new CANNON.Body({ mass: 0, shape: new CANNON.Cylinder(WHEEL_RADIUS, WHEEL_RADIUS, 0.5, NUM_POCKETS), material: wheelMaterial });
+            wheelBody.position.set(0, 0.5, 0);
+            wheelBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+            world.addBody(wheelBody);
+        }
+
+        // Tworzenie kulki
+        function createRouletteBall() {
+            const ballGeometry = new THREE.SphereGeometry(BALL_RADIUS, 16, 16);
+            const ballMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
+            ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+            scene.add(ballMesh);
+
+            ballBody = new CANNON.Body({ mass: 1, shape: new CANNON.Sphere(BALL_RADIUS), material: ballMaterial });
+            ballBody.position.set(WHEEL_RADIUS * 0.9, 0.8, 0);
+            ballBody.angularDamping = 0.9;
+            world.addBody(ballBody);
+        }
+
+        function createOuterWall() {
+            const wallShape = new CANNON.Cylinder(WHEEL_RADIUS + 0.5, WHEEL_RADIUS + 0.5, 1, 64);
+            outerWallBody = new CANNON.Body({ mass: 0, material: groundMaterial });
+            outerWallBody.addShape(wallShape);
+            outerWallBody.position.set(0, 0.5, 0);
+            outerWallBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+            world.addBody(outerWallBody);
+        }
+
+        // Tworzenie wizualnych kieszeni i numerów
+        function createPocketsAndText() {
+            const pocketsGroup = new THREE.Group();
+            const textLoader = new THREE.FontLoader();
+            textLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+                const textMaterial = new THREE.MeshBasicMaterial({ color: TEXT_COLOR });
+
+                for (let i = 0; i < NUM_POCKETS; i++) {
+                    const number = ROULETTE_NUMBERS[i];
+                    const angle = POCKET_ANGLE * i;
+                    const color = ROULETTE_COLORS[number];
+                    
+                    // Fizyczne rampy
+                    const rampShape = new CANNON.Box(new CANNON.Vec3(0.05, 0.1, 0.5));
+                    const rampBody = new CANNON.Body({ mass: 0, shape: rampShape, material: rampMaterial });
+                    rampBody.position.set(WHEEL_RADIUS * 0.9 * Math.cos(angle), 0.5, WHEEL_RADIUS * 0.9 * Math.sin(angle));
+                    rampBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
+                    world.addBody(rampBody);
+
+                    // Wizualne kieszenie
+                    const pocketGeometry = new THREE.BoxGeometry(0.5, 0.2, 0.2);
+                    const pocketMaterial = new THREE.MeshPhongMaterial({ color: color });
+                    const pocketMesh = new THREE.Mesh(pocketGeometry, pocketMaterial);
+                    pocketMesh.position.set(WHEEL_RADIUS * Math.cos(angle), 0.5, WHEEL_RADIUS * Math.sin(angle));
+                    pocketMesh.rotation.y = angle;
+                    pocketsGroup.add(pocketMesh);
+
+                    // Wizualne numery
+                    const textGeometry = new THREE.TextGeometry(String(number), {
+                        font: font,
+                        size: 0.4,
+                        height: 0.1,
+                    });
+                    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+                    const textPositionRadius = WHEEL_RADIUS - 0.7;
+                    textMesh.position.set(
+                        textPositionRadius * Math.sin(angle),
+                        0.5,
+                        textPositionRadius * Math.cos(angle)
+                    );
+                    textMesh.rotation.y = -angle + Math.PI;
+                    pocketsGroup.add(textMesh);
+                }
+
+                wheelMesh.add(pocketsGroup);
+            });
+        }
+        
+        // Animacja
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!world) return;
+
+            world.step(1 / 60);
+
+            // Aktualizacja pozycji mesha na podstawie ciała fizyki
+            wheelMesh.quaternion.copy(wheelBody.quaternion);
+            ballMesh.position.copy(ballBody.position);
+            ballMesh.quaternion.copy(ballBody.quaternion);
+
+            // Ustawienie kamery w zależności od cameraControlsEnabled
+            if (cameraControlsEnabled) {
+                const radius = 10;
+                camera.position.x = radius * Math.sin(cameraAngle.horizontal) * Math.cos(cameraAngle.vertical);
+                camera.position.y = radius * Math.sin(cameraAngle.vertical);
+                camera.position.z = radius * Math.cos(cameraAngle.horizontal) * Math.cos(cameraAngle.vertical);
+                camera.lookAt(0, 0, 0);
+            } else {
+                // Kamera śledzi kulkę
+                const ballPosition = ballMesh.position;
+                const cameraOffset = new THREE.Vector3(0, 7, 7);
+                camera.position.copy(ballPosition).add(cameraOffset);
+                camera.lookAt(ballPosition);
+            }
+
+            renderer.render(scene, camera);
+
+            // Sprawdzenie, czy kulka się zatrzymała
+            if (spinning && ballBody.velocity.length() < 0.1 && wheelBody.angularVelocity.length() < 0.1) {
+                spinning = false;
+                spinButton.disabled = false;
+                betButtons.forEach(button => button.disabled = false);
+
+                // Obliczenie zwycięskiego numeru
+                const ballAngle = Math.atan2(ballBody.position.x, ballBody.position.z) + Math.PI;
+                const wheelAngle = wheelBody.quaternion.toEuler().y;
+                const finalAngle = (ballAngle - wheelAngle) % (2 * Math.PI);
+                const winningIndex = Math.floor(finalAngle / POCKET_ANGLE);
+                const winningNumber = ROULETTE_NUMBERS[winningIndex];
+
+                const { win, multiplier } = checkWin(winningNumber);
+                if (win) {
+                    balance += betAmount * multiplier;
+                    resultDisplay.textContent = `Wygrałeś! Wylosowano ${winningNumber}. Wygrywasz ${betAmount * multiplier}.`;
+                    speak(`Wygrałeś! Wylosowano: ${winningNumber}`);
+                } else {
+                    resultDisplay.textContent = `Przegrałeś. Wylosowano ${winningNumber}.`;
+                    speak(`Przegrałeś. Wylosowano: ${winningNumber}`);
+                }
+                
+                updateUI();
+                saveResult(winningNumber);
+            }
+        }
+        
+        function onWindowResize() {
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+        }
+
+        // Funkcje do kontroli kamery
+        function onMouseDown(event) {
+            if (!cameraControlsEnabled) return;
+            isDragging = true;
+            previousMousePosition.x = event.clientX;
+            previousMousePosition.y = event.clientY;
+        }
+
+        function onMouseUp(event) {
+            isDragging = false;
+        }
+
+        function onMouseMove(event) {
+            if (!isDragging || !cameraControlsEnabled) return;
+            const deltaX = event.clientX - previousMousePosition.x;
+            const deltaY = event.clientY - previousMousePosition.y;
+
+            cameraAngle.horizontal -= deltaX * 0.005;
+            cameraAngle.vertical += deltaY * 0.005;
+
+            // Ograniczenie kąta pionowego
+            const maxVerticalAngle = Math.PI / 2 - 0.1;
+            cameraAngle.vertical = Math.max(-maxVerticalAngle, Math.min(maxVerticalAngle, cameraAngle.vertical));
+
+            previousMousePosition.x = event.clientX;
+            previousMousePosition.y = event.clientY;
+        }
+        
+        function onTouchStart(event) {
+            if (!cameraControlsEnabled) return;
+            isDragging = true;
+            previousMousePosition.x = event.touches[0].clientX;
+            previousMousePosition.y = event.touches[0].clientY;
+        }
+
+        function onTouchEnd(event) {
+            isDragging = false;
+        }
+
+        function onTouchMove(event) {
+            if (!isDragging || !cameraControlsEnabled) return;
+            const deltaX = event.touches[0].clientX - previousMousePosition.x;
+            const deltaY = event.touches[0].clientY - previousMousePosition.y;
+
+            cameraAngle.horizontal -= deltaX * 0.005;
+            cameraAngle.vertical += deltaY * 0.005;
+
+            const maxVerticalAngle = Math.PI / 2 - 0.1;
+            cameraAngle.vertical = Math.max(-maxVerticalAngle, Math.min(maxVerticalAngle, cameraAngle.vertical));
+
+            previousMousePosition.x = event.touches[0].clientX;
+            previousMousePosition.y = event.touches[0].clientY;
+        }
+
+        window.onload = function() {
+            init();
+        }
+    </script>
+</body>
+</html>

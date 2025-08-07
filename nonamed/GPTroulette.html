@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Ruletka 3D</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    #ui {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+    }
+    button {
+      padding: 10px 20px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #result {
+      margin-top: 10px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <button onclick="handleSpin()">Zakręć</button>
+    <div id="result"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"></script>
+  <script>
+    let scene, camera, renderer, controls;
+    let world, ballBody, ballMesh, wheelBody, wheelMesh;
+    let canSpin = true, spinning = false;
+
+    const rouletteNumbers = [
+      0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6,
+      27, 13, 36, 11, 30, 8, 23, 10, 5, 24,
+      16, 33, 1, 20, 14, 31, 9, 22, 18, 29,
+      7, 28, 12, 35, 3, 26
+    ];
+
+    const numberColors = {
+      0: 'green', 1: 'red', 2: 'black', 3: 'red', 4: 'black', 5: 'red', 6: 'black',
+      7: 'red', 8: 'black', 9: 'red', 10: 'black', 11: 'black', 12: 'red', 13: 'black',
+      14: 'red', 15: 'black', 16: 'red', 17: 'black', 18: 'red', 19: 'red', 20: 'black',
+      21: 'red', 22: 'black', 23: 'red', 24: 'black', 25: 'red', 26: 'black', 27: 'red',
+      28: 'black', 29: 'black', 30: 'red', 31: 'black', 32: 'red', 33: 'black',
+      34: 'red', 35: 'black', 36: 'red'
+    };
+
+    function getColorForNumber(num) {
+      return numberColors[num] || 'unknown';
+    }
+
+    function speak(text) {
+      const msg = new SpeechSynthesisUtterance(text);
+      speechSynthesis.speak(msg);
+    }
+
+    function showMessage(text) {
+      document.getElementById('result').innerText = text;
+    }
+
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 15, 20);
+
+      renderer = new THREE.WebGLRenderer();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+      world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
+
+      // Ground
+      const groundBody = new CANNON.Body({ mass: 0 });
+      groundBody.addShape(new CANNON.Plane());
+      groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+      world.addBody(groundBody);
+
+      // Wheel
+      const wheelRadius = 6;
+      const wheelHeight = 0.5;
+      const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelHeight, 64);
+      const wheelMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 });
+      wheelMesh = new THREE.Mesh(wheelGeometry, wheelMaterial);
+      wheelMesh.rotation.x = Math.PI / 2;
+      scene.add(wheelMesh);
+
+      wheelBody = new CANNON.Body({ mass: 0 });
+      wheelBody.addShape(new CANNON.Cylinder(wheelRadius, wheelRadius, wheelHeight, 64));
+      wheelBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+      world.addBody(wheelBody);
+
+      // Ball
+      const ballRadius = 0.3;
+      const ballGeometry = new THREE.SphereGeometry(ballRadius, 32, 32);
+      const ballMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+      scene.add(ballMesh);
+
+      const ballShape = new CANNON.Sphere(ballRadius);
+      ballBody = new CANNON.Body({ mass: 1 });
+      ballBody.addShape(ballShape);
+      ballBody.position.set(0, 3, wheelRadius - 1);
+      world.addBody(ballBody);
+
+      // Ramp
+      const rampShape = new CANNON.Cylinder(wheelRadius + 0.3, wheelRadius + 0.3, 2, 64);
+      const rampBody = new CANNON.Body({ mass: 0 });
+      rampBody.addShape(rampShape);
+      rampBody.position.set(0, 1.8, 0);
+      world.addBody(rampBody);
+
+      animate();
+    }
+
+    function handleSpin() {
+      if (!canSpin || spinning) return;
+      canSpin = false;
+      spinning = true;
+
+      ballBody.velocity.set(0, 0, 0);
+      ballBody.angularVelocity.set(0, 0, 0);
+      ballBody.position.set(0, 3, 5.5);
+
+      const angle = Math.random() * 2 * Math.PI;
+      const speed = 10 + Math.random() * 4;
+      ballBody.velocity.set(Math.sin(angle) * speed, 0, Math.cos(angle) * speed);
+
+      setTimeout(() => {
+        const interval = setInterval(() => {
+          const speed = ballBody.velocity.length();
+          if (speed < 0.1) {
+            clearInterval(interval);
+            checkResult();
+          }
+        }, 300);
+      }, 4000);
+    }
+
+    function checkResult() {
+      const pos = ballBody.position;
+      const angle = Math.atan2(pos.x, pos.z);
+      let sector = Math.floor(((angle + Math.PI) / (2 * Math.PI)) * 37);
+      if (sector < 0 || sector > 36 || isNaN(sector)) {
+        console.warn("⚠️ Kulka poza zakresem – wynik losowy");
+        sector = Math.floor(Math.random() * 37);
+      }
+      const result = rouletteNumbers[sector];
+      const color = getColorForNumber(result);
+      console.log(`🎯 Wynik: ${result} (${color})`);
+      showMessage(`🎯 Wynik: ${result} (${color.toUpperCase()})`);
+      speak(`Wypadło ${result}, ${color === "green" ? "zielone" : color === "red" ? "czerwone" : "czarne"}`);
+      canSpin = true;
+      spinning = false;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      world.step(1 / 60);
+
+      ballMesh.position.copy(ballBody.position);
+      ballMesh.quaternion.copy(ballBody.quaternion);
+
+      wheelMesh.rotation.z += 0.01;
+
+      if (ballBody.position.y < -5) {
+        ballBody.position.set(0, 3, 5);
+        ballBody.velocity.set(0, 0, 0);
+        showMessage("🛑 Kulka wypadła!");
+        canSpin = true;
+        spinning = false;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener("load", init);
+  </script>
+</body>
+</html>
